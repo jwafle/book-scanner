@@ -1,11 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 
@@ -85,14 +81,14 @@ function RouteComponent() {
     const dataUrl = canvas.toDataURL("image/png");
     setCapturedImage(dataUrl);
     toast.custom((t) => (
-      <div className="flex items-center gap-2 w-full">
+      <div className="flex items-center w-full rounded-md">
         <img
           src={dataUrl}
           alt="preview"
-          className="w-12 h-12 object-cover rounded-md"
+          className="w-12 h-12 object-cover rounded-md my-2 ml-2 mr-4"
         />
-        <span className="text-sm">Image captured!</span>
-        <div className="ml-auto">
+        <span className="text-sm mr-10">Image captured!</span>
+        <div className="ml-auto mr-2 rounded-md">
           <Button
             size="sm"
             onClick={() => {
@@ -109,7 +105,12 @@ function RouteComponent() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh]">
-      <Toaster position="top-center" />
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          className: "rounded-md bg-white shadow-lg border border-gray-300",
+        }}
+      />
       <h1 className="text-2xl font-bold mb-4">Camera Access</h1>
       {error && <div className="text-red-500 mb-4">{error}</div>}
       <video
@@ -134,7 +135,7 @@ function RouteComponent() {
             <img
               src={capturedImage}
               alt="captured"
-              className="w-full h-auto mb-4"
+              className="w-full h-auto my-4 rounded-md"
             />
           )}
           <DialogFooter>
