@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 
@@ -13,6 +14,8 @@ function RouteComponent() {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [hasPermission, setHasPermission] = React.useState(false);
+  const [capturedImage, setCapturedImage] = React.useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = React.useState(false);
 
   React.useEffect(() => {
     async function getCamera() {
@@ -53,6 +56,19 @@ function RouteComponent() {
     }
   }
 
+  function handleSubmit() {
+    if (capturedImage) {
+      submitImage(capturedImage);
+    }
+    setDialogOpen(false);
+    setCapturedImage(null);
+  }
+
+  function handleDiscard() {
+    setDialogOpen(false);
+    setCapturedImage(null);
+  }
+
   const takeStill = React.useCallback(async () => {
     if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
@@ -63,13 +79,38 @@ function RouteComponent() {
     if (!ctx) return;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const dataUrl = canvas.toDataURL("image/png");
-    toast("Image captured!");
-    submitImage(dataUrl);
+    setCapturedImage(dataUrl);
+    toast.custom((t) => (
+      <div className="flex items-center w-full rounded-md">
+        <img
+          src={dataUrl}
+          alt="preview"
+          className="w-12 h-12 object-cover rounded-md my-2 ml-2 mr-4"
+        />
+        <span className="text-sm mr-10">Image captured!</span>
+        <div className="ml-auto mr-2 rounded-md">
+          <Button
+            size="sm"
+            onClick={() => {
+              setDialogOpen(true);
+              toast.dismiss(t.id);
+            }}
+          >
+            Inspect
+          </Button>
+        </div>
+      </div>
+    ));
   }, []);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh]">
-      <Toaster position="top-center" />
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          className: "rounded-md bg-white shadow-lg border border-gray-300",
+        }}
+      />
       <h1 className="text-2xl font-bold mb-4">Camera Access</h1>
       {error && <div className="text-red-500 mb-4">{error}</div>}
       <video
@@ -88,6 +129,23 @@ function RouteComponent() {
           Take Still
         </Button>
       )}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          {capturedImage && (
+            <img
+              src={capturedImage}
+              alt="captured"
+              className="w-full h-auto my-4 rounded-md"
+            />
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={handleDiscard}>
+              Discard
+            </Button>
+            <Button onClick={handleSubmit}>Submit</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
