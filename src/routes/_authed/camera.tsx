@@ -14,7 +14,9 @@ function RouteComponent() {
     async function getCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+          video: {
+            facingMode: "environment",
+          },
         });
         setHasPermission(true);
         if (videoRef.current) {
