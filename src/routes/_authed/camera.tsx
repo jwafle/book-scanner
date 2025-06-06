@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
-import { X } from "lucide-react";
+import { X, Camera } from "lucide-react";
 
 export const Route = createFileRoute("/_authed/camera")({
   component: RouteComponent,
@@ -20,31 +20,43 @@ function RouteComponent() {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [isFullScreen, setIsFullScreen] = React.useState(false);
 
-  React.useEffect(() => {
-    async function getCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "environment",
-          },
-        });
-        streamRef.current = stream;
-        setHasPermission(true);
-        setIsFullScreen(true); // Auto-enter full screen on camera access
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      } catch (err: any) {
-        setError("Camera access denied or unavailable.");
-      }
+  const stopCameraStream = React.useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
     }
-    getCamera();
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setHasPermission(false);
+  }, []);
+
+  const startCamera = React.useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "environment",
+          // @ts-ignore - Some browsers support this constraint
+          focusMode: { ideal: "continuous" }
+        },
+      });
+      streamRef.current = stream;
+      setHasPermission(true);
+      setIsFullScreen(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err: any) {
+      setError("Camera access denied or unavailable.");
+      setIsFullScreen(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    startCamera();
     // Cleanup: stop the camera when component unmounts
     return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
+      stopCameraStream();
     };
   }, []);
 
@@ -120,85 +132,80 @@ function RouteComponent() {
     ensureVideoStream();
   });
 
-  return isFullScreen && hasPermission ? (
-    <div className="fixed inset-0 bg-black z-50 flex items-center justify-center h-screen w-screen">
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          className: "rounded-md bg-white shadow-lg border border-gray-300",
-        }}
-      />
-      <Button 
-        onClick={() => {
-          // Just change the view state without affecting the stream
-          setIsFullScreen(false);
-        }}
-        className="absolute top-4 right-4 z-10 rounded-full w-10 h-10 p-0"
-        variant="outline"
-      >
-        <X className="h-5 w-5" />
-      </Button>
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        onLoadedMetadata={() => ensureVideoStream()}
-        className="w-full h-full object-cover absolute inset-0"
-      />
-      <canvas ref={canvasRef} className="hidden" />
-      <Button 
-        onClick={takeStill}
-        className="absolute bottom-10 left-1/2 transform -translate-x-1/2 z-10 px-8 py-6 text-lg rounded-full h-16 w-16 bg-white text-black hover:bg-gray-200"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8">
-          <path d="M12 9a3.75 3.75 0 100 7.5A3.75 3.75 0 0012 9z" />
-          <path fillRule="evenodd" d="M9.344 3.071a49.52 49.52 0 015.312 0c.967.052 1.83.585 2.332 1.39l.821 1.317c.24.383.645.643 1.11.71.386.054.77.113 1.152.177 1.432.239 2.429 1.493 2.429 2.909V18a3 3 0 01-3 3h-12a3 3 0 01-3-3V9.574c0-1.416.997-2.67 2.429-2.909.382-.064.766-.123 1.151-.178a1.56 1.56 0 001.11-.71l.822-1.315a2.942 2.942 0 012.332-1.39zM12 15a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-        </svg>
-      </Button>
-    </div>
-  ) : (
-    <div className="flex flex-col items-center justify-center min-h-[60vh]">
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          className: "rounded-md bg-white shadow-lg border border-gray-300",
-        }}
-      />
-      <h1 className="text-2xl font-bold mb-4">Camera Access</h1>
-      {error && <div className="text-red-500 mb-4">{error}</div>}
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        onLoadedMetadata={() => ensureVideoStream()}
-        className="rounded shadow-lg w-full aspect-video bg-black"
-        style={{ display: hasPermission ? "block" : "none" }}
-      />
-      <canvas ref={canvasRef} className="hidden" />
-      {!hasPermission && !error && (
-        <div className="text-gray-500">Requesting camera access...</div>
-      )}
-      {hasPermission && !isFullScreen && (
-        <div className="flex flex-col gap-4 mt-4 items-center">
+  return (
+    <>
+      {isFullScreen && hasPermission ? (
+        <div className="fixed inset-0 bg-black z-50 flex items-center justify-center h-screen w-screen">
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              className: "rounded-md bg-white shadow-lg border border-gray-300",
+            }}
+          />
           <Button 
             onClick={() => {
-              ensureVideoStream();
-              setIsFullScreen(true);
-            }} 
-            size="lg" 
-            className="px-8 py-6 text-lg"
+              stopCameraStream();
+              setIsFullScreen(false);
+            }}
+            className="absolute top-4 right-4 z-10 rounded-full w-10 h-10 p-0"
+            variant="outline"
           >
-            Enter Full Screen
+            <X className="h-5 w-5" />
           </Button>
-          <Button onClick={takeStill} variant="outline">
-            Take Still
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            onLoadedMetadata={() => ensureVideoStream()}
+            className="w-full h-full object-cover absolute inset-0"
+          />
+          <canvas ref={canvasRef} className="hidden" />
+          <Button 
+            onClick={takeStill}
+            className="absolute bottom-10 left-1/2 transform -translate-x-1/2 z-10 px-8 py-6 text-lg rounded-full h-16 w-16 bg-white text-black hover:bg-gray-200"
+          >
+            <Camera className="w-8 h-8" />
           </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              className: "rounded-md bg-white shadow-lg border border-gray-300",
+            }}
+          />
+          <h1 className="text-2xl font-bold mb-4">Camera Access</h1>
+          {error && <div className="text-red-500 mb-4">{error}</div>}
+          {!hasPermission && !error && !isFullScreen && (
+            <div className="flex flex-col gap-4 items-center">
+              <Camera className="w-16 h-16 text-gray-400 mb-2" />
+              <Button 
+                onClick={() => {
+                  setError(null);
+                  startCamera();
+                }} 
+                size="lg" 
+                className="px-8 py-6 text-lg"
+              >
+                Open Camera
+              </Button>
+            </div>
+          )}
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            onLoadedMetadata={() => ensureVideoStream()}
+            className="hidden"
+          />
+          <canvas ref={canvasRef} className="hidden" />
         </div>
       )}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="z-[60]">
           {capturedImage && (
             <img
               src={capturedImage}
@@ -214,6 +221,6 @@ function RouteComponent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
